@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html  style="height:100%">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Radius Aggregation</title>
+    
+    <script src="https://maps.googleapis.com/maps/api/js?key=<<API KEY HERE>>"></script>
+    
+    <script id="sap-ui-bootstrap"
+        type="text/javascript"
+        src="/sap/ui5/1/resources/sap-ui-core.js"
+		data-sap-ui-resourceroots='{"msg.maps": "./maps"}'
+        data-sap-ui-bindingSyntax='complex'
+        data-sap-ui-theme="sap_bluecrystal"
+        data-sap-ui-libs="sap.m"></script>
+    
+    <script id="main" type="sapui5/xmlview">
+        <mvc:View height="100%"
+        	xmlns:mvc="sap.ui.core.mvc"
+        	xmlns:core="sap.ui.core"
+        	xmlns:maps="msg.maps"
+        	xmlns:layout="sap.ui.layout"
+        	xmlns="sap.m" >
+        	<Page showHeader="true" height="100%" enableScrolling="false">
+        	    <customHeader>
+        	        <Bar>
+        	            <contentMiddle>
+        	                <Title text="Radius Aggregation"/>
+        	                <Input width="6em" type="Number" value="100" change="onChangeRadius"/>
+        	            </contentMiddle>
+        	        </Bar>
+        	    </customHeader>
+        	    <layout:FixFlex fixFirst="false">
+        	        <layout:fixContent>
+        	            <ScrollContainer width="100%" height="13em" vertical="true" horizontal="false">
+            	            <Table id="table" items="{path: 'Results', sorter: {path: 'objectCount', descending: true}}">
+            	                <columns>
+            	                    <Column><header><Label text="Group" /></header></Column>
+            	                    <Column><header><Label text="House Count" /></header></Column>
+            	                    <Column><header><Label text="Total Sum" /></header></Column>
+            	                </columns>
+            	                <ColumnListItem>
+            	                    <Text text="{= ${group} ? 'Inside Radius' : 'Outside Radius'}" />
+            	                    <Text text="{objectCount}" />
+            	                    <Text text="{totalSum}" />
+            	                </ColumnListItem>
+            	            </Table>
+            	        </ScrollContainer>
+            		</layout:fixContent>
+        	        <layout:flexContent>
+            			<maps:Map latitude="54" longitude="-4" zoom="5" 
+            			    markers="{path: '/ExpandedInsurances', templateShareable: true}" 
+            				height="100%" width="auto" id="map" >
+            				<maps:markers>
+    				            <maps:Marker latitude="{objectLatitude}" longitude="{objectLongitude}" press="onPressMarker" />
+            				</maps:markers>
+            			</maps:Map>
+            		</layout:flexContent>
+            	</layout:FixFlex>
+        	</Page>
+        </mvc:View>    
+    </script>
+    
+    <script>
+        sap.ui.require(["sap/ui/core/mvc/Controller", "sap/m/MessageToast", "sap/ui/model/json/JSONModel", "sap/ui/Device",
+        "sap/ui/model/odata/v2/ODataModel", "msg/maps/Marker"], 
+            function(Controller, MessageToast, JSONModel, Device, ODataModel, Marker){
+                
+                /**
+                 * Annonymous controller for the view.
+                 * @class
+                 */
+                var fnController = Controller.extend("AnnonymousController", {
+                    _radius: 100000,
+                    _lat: null,
+                    _lng: null,
+                    
+                    onInit: function() {
+                        this.createDataModel();
+                        this.createDeviceModel();
+                        this.setContentDensityClass();
+                    },
+                    
+                    createDataModel: function() {
+                        this.getView().setModel(new ODataModel("../service/odata.xsodata"));
+                    },
+                    
+                    createDeviceModel: function() {
+                    	var oModel = new JSONModel(Device);
+                    	oModel.setDefaultBindingMode("OneWay");
+                    	Device.resize.attachHandler(function() {
+                    	    oModel.setData(Device);
+                    	});
+                    	this.getView().setModel(oModel, "device");
+                    },
+            
+            		setContentDensityClass: function() {
+            			this.getView().addStyleClass(Device.support.touch ? "sapUiSizeCozy" : "sapUiSizeCompact");
+            		},
+            		
+            		onChangeRadius: function(oEvent) {
+            		    this._radius = parseFloat(oEvent.getSource().getValue()) * 1000;
+            		    this.updateBindings();
+            		},
+            		
+            		onPressMarker: function(oEvent) {
+            		    this._lat = oEvent.getSource().getLatitude();
+            		    this._lng = oEvent.getSource().getLongitude();
+            		    this.updateBindings();
+            		},
+            		
+            		/**
+            		 * Updates the bindings of the table / map. This basically passes the parameters to the 
+            		 * calculation view (indirectly). Called when a point is clicked or the radius is changed.
+            		 */
+            		updateBindings: function() {
+            		    var oModel = this.getView().getModel(),
+            		        oKey;
+            		    if (this._radius && this._lat !== null && this._lng !== null) {
+            		        oKey = {
+        		                IV_LAT: this._lat,
+        		                IV_LNG: this._lng,
+        		                IV_RADIUS: this._radius
+        		            };
+            		        this.byId("table").bindElement({
+            		            path: oModel.createKey("/RadiusAggregationParameters", oKey)
+            		        });
+            		        this.byId("map").bindAggregation("markers",{
+            		            path: oModel.createKey("/RadiusPointParameters", oKey) + "/Results",
+            		            template: new Marker({
+            		                latitude: "{objectLatitude}",
+            		                longitude: "{objectLongitude}",
+            		                color: {
+            		                    path: "group",
+            		                    formatter: function(iGroup) {
+            		                        return iGroup ? "#1f77b4" : "#aec7e8";
+            		                    }
+            		                },
+            		                press: this.onPressMarker.bind(this)
+            		            })
+            		        });
+            		    }
+            		}
+                });
+                
+                sap.ui.xmlview("main", {
+                    viewContent:    jQuery("#main").html(),
+                    controller:     new fnController()
+                }).placeAt("uiArea");
+            }
+        );
+    </script>
+
+</head>
+<body class="sapUiBody" style="height:100%">
+    <div id="uiArea"  style="height:100%"></div>
+</body>
+</html>

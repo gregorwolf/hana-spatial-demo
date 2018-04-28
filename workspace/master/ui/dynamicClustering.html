@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html  style="height:100%">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Dynamic Clustering</title>
+    
+    <script src="https://maps.googleapis.com/maps/api/js?key=<<API KEY HERE>>"></script>
+    
+    <script id="sap-ui-bootstrap"
+        type="text/javascript"
+        src="/sap/ui5/1/resources/sap-ui-core.js"
+		data-sap-ui-resourceroots='{"msg.maps": "./maps"}'
+        data-sap-ui-bindingSyntax='complex'
+        data-sap-ui-theme="sap_bluecrystal"
+        data-sap-ui-libs="sap.m"></script>
+    
+    <script id="main" type="sapui5/xmlview">
+        <mvc:View height="100%"
+        	xmlns:mvc="sap.ui.core.mvc"
+        	xmlns:core="sap.ui.core"
+        	xmlns:maps="msg.maps"
+        	xmlns:layout="sap.ui.layout"
+        	xmlns="sap.m" >
+        	<Page showHeader="true" height="100%" enableScrolling="false">
+        	    <customHeader>
+        	        <Bar>
+        	            <contentMiddle>
+        	                <Title text="Dynamic Clustering"/>
+        	                <Input width="6em" type="Number" value="5" change="onChangeCount"/>
+        	            </contentMiddle>
+        	        </Bar>
+        	    </customHeader>
+        	    <layout:FixFlex fixFirst="false">
+        	        <layout:fixContent>
+        	            <ScrollContainer width="100%" height="13em" vertical="true" horizontal="false">
+            	            <Table items="{path: '/', sorter: {path: 'objectCount', descending: true}}">
+            	                <columns>
+            	                    <Column><header><Label text="ID" /></header></Column>
+            	                    <Column><header><Label text="House Count" /></header></Column>
+            	                    <Column><header><Label text="Total Sum" /></header></Column>
+            	                </columns>
+            	                <ColumnListItem>
+            	                    <Text text="{id}" />
+            	                    <Text text="{objectCount}" />
+            	                    <Text text="{totalSum}" />
+            	                </ColumnListItem>
+            	            </Table>
+            	        </ScrollContainer>
+            		</layout:fixContent>
+        	        <layout:flexContent>
+            			<maps:Map latitude="54" longitude="-4" zoom="5" circles="{/}" 
+            				height="100%" width="auto" >
+            				<maps:circles>
+            				    <maps:Circle fillColor="#1f77b4" 
+            				        fillOpacity="0.5"
+            				        radius="{= ( ${objectCount} || 1 ) * 1000 }"
+            				        latitude="{centerLatitude}" 
+            				        longitude="{centerLongitude}" />
+            				</maps:circles>
+            			</maps:Map>
+            		</layout:flexContent>
+            	</layout:FixFlex>
+        	</Page>
+        </mvc:View>    
+    </script>
+    
+    <script>
+        sap.ui.require(["sap/ui/core/mvc/Controller", "sap/m/MessageToast", "sap/ui/model/json/JSONModel", "sap/ui/Device"], 
+            function(Controller, MessageToast, JSONModel, Device){
+                
+                /**
+                 * Annonymous controller for the view.
+                 * @class
+                 */
+                var fnController = Controller.extend("AnnonymousController", {
+                    
+                    onInit: function() {
+                        this.createDataModel();
+                        this.createDeviceModel();
+                        this.setContentDensityClass();
+                    },
+                    
+                    createDataModel: function() {
+                        this.getView().setModel(new JSONModel("../service/dynamicClustering.xsjs"));
+                    },
+                    
+                    createDeviceModel: function() {
+                    	var oModel = new JSONModel(Device);
+                    	oModel.setDefaultBindingMode("OneWay");
+                    	Device.resize.attachHandler(function() {
+                    	    oModel.setData(Device);
+                    	});
+                    	this.getView().setModel(oModel, "device");
+                    },
+            
+            		setContentDensityClass: function() {
+            			this.getView().addStyleClass(Device.support.touch ? "sapUiSizeCozy" : "sapUiSizeCompact");
+            		},
+            		
+            		/**
+            		 * Called when the cluster count is changed.
+            		 * @param   {Event}     oEvent      The UI5 event.
+            		 * @returns {void}
+            		 */
+            		onChangeCount: function(oEvent) {
+            		    var oModel = this.getView().getModel();
+            		    jQuery.ajax({
+            		        url: "../service/dynamicClustering.xsjs",
+            		        data: {
+            		            clusters: oEvent.getSource().getValue()
+            		        },
+            		        dataType: "json",
+            		        success: function(oData) {
+            		            oModel.setData(oData);
+            		        }
+            		    });
+            		}
+                });
+                
+                sap.ui.xmlview("main", {
+                    viewContent:    jQuery("#main").html(),
+                    controller:     new fnController()
+                }).placeAt("uiArea");
+            }
+        );
+    </script>
+
+</head>
+<body class="sapUiBody" style="height:100%">
+    <div id="uiArea"  style="height:100%"></div>
+</body>
+</html>

@@ -1,0 +1,25 @@
+namespace workspace.master.data;
+
+@Schema: 'WORKSPACE_MASTER_SPATIAL'
+context ctxSpatial {
+    // the main table, should store all the necessary data
+    entity eInsurance { 
+        key policyNumber:       String(32);
+            personName:         String(128) not null;
+            objectAddress:      String(256) not null;
+            insuredSum:         Decimal(16,2) not null;
+            objectLocation:     hana.ST_POINT(4326);
+            objectGeocoded:     hana.TINYINT default 0;
+    }; 
+    
+    // the expanded view (expands the objectLocation into coords)
+    // contains only the points which were geocoded succesfully
+    view vExpandedInsurance as select from eInsurance{
+        policyNumber,
+        personName,
+        insuredSum,
+        objectAddress,
+        objectLocation.ST_Y() as objectLatitude,
+        objectLocation.ST_X() as objectLongitude
+    } where eInsurance.objectGeocoded = 1;
+}

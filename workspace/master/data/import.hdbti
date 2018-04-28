@@ -1,0 +1,10 @@
+import = [
+    {
+        cdstable  = "workspace.master.data::ctxSpatial.eInsurance";
+        schema = "WORKSPACE_MASTER_SPATIAL";
+        file = "workspace.master.data:eHouses.csv";
+        header = false;
+        delimField = ",";
+        delimEnclosing="\""; 
+    } 
+]; 

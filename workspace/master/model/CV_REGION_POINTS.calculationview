@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Calculation:scenario xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:Calculation="http://www.sap.com/ndb/BiModelCalculation.ecore" id="CV_REGION_POINTS" applyPrivilegeType="ANALYTIC_PRIVILEGE" dataCategory="DEFAULT" dimensionType="STANDARD" schemaVersion="2.3" defaultClient="$$client$$" visibility="internal" calculationScenarioType="SCRIPT_BASED" scriptParametersCaseSensitive="true" enforceSqlExecution="false">
+<descriptions defaultDescription="CV_RADIUS_AGGR"/>
+<localVariables>
+  <variable id="IV_POLYGON" parameter="true">
+    <variableProperties datatype="VARCHAR" length="5000">
+      <valueDomain type="empty"/>
+      <selection multiLine="false" type="SingleValue"/>
+    </variableProperties>
+  </variable>
+</localVariables>
+<variableMappings/>
+<dataSources/>
+<calculationViews>
+  <calculationView xsi:type="Calculation:SqlScriptView" id="Script_View">
+    <viewAttributes>
+      <viewAttribute id="policyNumber" datatype="VARCHAR" length="32"/>
+    
+      <viewAttribute id="objectLatitude" datatype="DOUBLE"/>
+      <viewAttribute id="objectLongitude" datatype="DOUBLE"/>
+      <viewAttribute id="group" datatype="INTEGER"/>
+    </viewAttributes>
+    <calculatedViewAttributes/>
+    <localVariable>#IV_POLYGON</localVariable>
+    <definition>/********* Begin Procedure Script ************/ 
+BEGIN 
+    
+    /* Adds a flag to each point based on whether or not it is inside the region. */
+    
+    var_out = SELECT &quot;policyNumber&quot;, &quot;objectLocation&quot;.ST_Y() AS &quot;objectLatitude&quot;, 
+        &quot;objectLocation&quot;.ST_X() AS &quot;objectLongitude&quot;,
+        &quot;objectLocation&quot;.ST_CoveredBy(NEW ST_POLYGON(:iv_polygon, 4326)) AS &quot;group&quot;
+        FROM &quot;WORKSPACE_MASTER_SPATIAL&quot;.&quot;workspace.master.data::ctxSpatial.eInsurance&quot;
+        WHERE &quot;objectLocation&quot; IS NOT NULL;
+
+END /********* End Procedure Script ************/</definition>
+  </calculationView>
+</calculationViews>
+<logicalModel id="Script_View">
+  <attributes>
+    <attribute id="policyNumber" order="1" semanticType="empty">
+      <descriptions defaultDescription="COL"/>
+      <keyMapping columnObjectName="Script_View" columnName="policyNumber"/>
+    </attribute>
+    <attribute id="objectLatitude" order="2" semanticType="empty">
+      <keyMapping columnObjectName="Script_View" columnName="objectLatitude"/>
+    </attribute>
+    <attribute id="objectLongitude" order="3" semanticType="empty">
+      <keyMapping columnObjectName="Script_View" columnName="objectLongitude"/>
+    </attribute>
+    <attribute id="group" order="4" semanticType="empty">
+      <keyMapping columnObjectName="Script_View" columnName="group"/>
+    </attribute>
+  </attributes>
+  <calculatedAttributes/>
+  <baseMeasures/>
+  <calculatedMeasures/>
+  <restrictedMeasures/></logicalModel>
+<layout>
+  <shapes>
+    <shape expanded="true" modelObjectName="Output" modelObjectNameSpace="MeasureGroup">
+      <upperLeftCorner x="40" y="85"/>
+    </shape>
+  </shapes>
+</layout>
+</Calculation:scenario>

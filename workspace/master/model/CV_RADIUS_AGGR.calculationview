@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Calculation:scenario xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:Calculation="http://www.sap.com/ndb/BiModelCalculation.ecore" id="CV_RADIUS_AGGR" applyPrivilegeType="ANALYTIC_PRIVILEGE" dataCategory="DEFAULT" dimensionType="STANDARD" schemaVersion="2.3" defaultClient="$$client$$" visibility="internal" calculationScenarioType="SCRIPT_BASED" scriptParametersCaseSensitive="true" enforceSqlExecution="false">
+<descriptions defaultDescription="CV_RADIUS_AGGR"/>
+<localVariables>
+  <variable id="IV_LAT" parameter="true">
+    <variableProperties datatype="DECIMAL" length="10" scale="6">
+      <valueDomain type="empty"/>
+      <selection multiLine="false" type="SingleValue"/>
+    </variableProperties>
+  </variable>
+  <variable id="IV_LNG" parameter="true">
+    <variableProperties datatype="DECIMAL" length="10" scale="6">
+      <valueDomain type="empty"/>
+      <selection multiLine="false" type="SingleValue"/>
+    </variableProperties>
+  </variable>
+  <variable id="IV_RADIUS" parameter="true">
+    <variableProperties datatype="DECIMAL" length="20" scale="2">
+      <valueDomain type="empty"/>
+      <selection multiLine="false" type="SingleValue"/>
+    </variableProperties>
+  </variable>
+</localVariables>
+<variableMappings/>
+<dataSources/>
+<calculationViews>
+  <calculationView xsi:type="Calculation:SqlScriptView" id="Script_View">
+    <viewAttributes>
+      <viewAttribute id="group" datatype="INTEGER"/>
+      <viewAttribute id="totalSum" datatype="DECIMAL" length="20" scale="2"/>
+      <viewAttribute id="objectCount" datatype="INTEGER"/>
+    </viewAttributes>
+    <calculatedViewAttributes/>
+    <localVariable>#IV_LAT</localVariable>
+    <localVariable>#IV_LNG</localVariable>
+    <localVariable>#IV_RADIUS</localVariable>
+    <definition>/********* Begin Procedure Script ************/ 
+BEGIN 
+    
+    /* Aggregates the points into two rows: 1 row for all the points inside and 1 for all the points outside */
+    /* Computes the total insured sum and the number of points. Would be good to filter based on the geocoding status */
+    
+    var_out = SELECT 1 AS &quot;group&quot;, IFNULL(SUM(&quot;insuredSum&quot;), 0) AS &quot;totalSum&quot;, COUNT(&quot;policyNumber&quot;) AS &quot;objectCount&quot;
+        FROM &quot;WORKSPACE_MASTER_SPATIAL&quot;.&quot;workspace.master.data::ctxSpatial.eInsurance&quot;
+        WHERE &quot;objectLocation&quot; IS NOT NULL AND &quot;objectLocation&quot;.ST_DISTANCE(
+            NEW ST_POINT('POINT(' || :IV_LNG || ' ' ||  :IV_LAT || ')', 4326), 'meter') &lt; :iv_radius
+    UNION ALL
+        SELECT 0 AS &quot;group&quot;, IFNULL(SUM(&quot;insuredSum&quot;), 0) AS &quot;totalSum&quot;, COUNT(&quot;policyNumber&quot;) AS &quot;objectCount&quot;
+        FROM &quot;WORKSPACE_MASTER_SPATIAL&quot;.&quot;workspace.master.data::ctxSpatial.eInsurance&quot; 
+        WHERE &quot;objectLocation&quot; IS NOT NULL AND &quot;objectLocation&quot;.ST_DISTANCE(
+            NEW ST_POINT('POINT(' || :IV_LNG || ' ' ||  :IV_LAT || ')', 4326), 'meter') &gt;= :iv_radius; 
+
+END /********* End Procedure Script ************/</definition>
+  </calculationView>
+</calculationViews>
+<logicalModel id="Script_View">
+  <attributes>
+    <attribute id="group" order="1" semanticType="empty">
+      <keyMapping columnObjectName="Script_View" columnName="group"/>
+    </attribute>
+    <attribute id="totalSum" order="2">
+      <keyMapping columnObjectName="Script_View" columnName="totalSum"/>
+    </attribute>
+    <attribute id="objectCount" order="3">
+      <keyMapping columnObjectName="Script_View" columnName="objectCount"/>
+    </attribute>
+  </attributes>
+  <calculatedAttributes/>
+  <baseMeasures/>
+  <calculatedMeasures/>
+  <restrictedMeasures/></logicalModel>
+<layout>
+  <shapes>
+    <shape expanded="true" modelObjectName="Output" modelObjectNameSpace="MeasureGroup">
+      <upperLeftCorner x="40" y="85"/>
+    </shape>
+  </shapes>
+</layout>
+</Calculation:scenario>

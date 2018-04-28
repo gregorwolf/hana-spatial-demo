@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Calculation:scenario xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:Calculation="http://www.sap.com/ndb/BiModelCalculation.ecore" id="CV_KMEANS_CLUSTERING" applyPrivilegeType="NONE" dataCategory="DEFAULT" dimensionType="STANDARD" schemaVersion="2.3" defaultClient="$$client$$" visibility="internal" calculationScenarioType="SCRIPT_BASED" scriptParametersCaseSensitive="true" enforceSqlExecution="false">
+<descriptions defaultDescription="CV_GRID_CLUSTERING"/>
+<defaultSchema schemaName="WORKSPACE_MASTER_SPATIAL"/>
+<localVariables/>
+<variableMappings/>
+<dataSources/>
+<calculationViews>
+  <calculationView xsi:type="Calculation:SqlScriptView" id="Script_View">
+    <viewAttributes>
+      <viewAttribute id="id" datatype="INTEGER"/>
+    
+      <viewAttribute id="totalSum" datatype="DECIMAL" length="20" scale="2"/>
+      <viewAttribute id="objectCount" datatype="INTEGER"/>
+      <viewAttribute id="centerLatitude" datatype="DOUBLE"/>
+      <viewAttribute id="centerLongitude" datatype="DOUBLE"/>
+    </viewAttributes>
+    <calculatedViewAttributes/>
+    <definition>/********* Begin Procedure Script ************/ 
+BEGIN
+    
+    /* Performs the K Means clustering. You need to transform the points to SRID 1000004326 */
+    /* The best way of doing it is with a nested query: SELECT .. FROM ( SELECT ... FROM ... ) GROUP BY ...  */
+    
+    var_out = SELECT ST_ClusterID() AS &quot;id&quot;, SUM(&quot;insuredSum&quot;) AS &quot;totalSum&quot;, 
+        COUNT(&quot;insuredSum&quot;) AS &quot;objectCount&quot;, ST_ClusterCentroid().ST_Y() AS &quot;centerLatitude&quot;,
+        ST_ClusterCentroid().ST_X() AS &quot;centerLongitude&quot;
+        FROM (
+            SELECT &quot;insuredSum&quot;, &quot;objectLocation&quot;.ST_Transform(1000004326) AS &quot;objectLocation&quot; 
+                FROM &quot;WORKSPACE_MASTER_SPATIAL&quot;.&quot;workspace.master.data::ctxSpatial.eInsurance&quot; 
+                WHERE &quot;objectLocation&quot; IS NOT NULL
+        )
+        GROUP CLUSTER BY &quot;objectLocation&quot;
+        USING KMEANS CLUSTERS 5;
+ 
+END /********* End Procedure Script ************/</definition>
+  </calculationView>
+</calculationViews>
+<logicalModel id="Script_View">
+  <attributes>
+    <attribute id="id" order="1" semanticType="empty">
+      <descriptions defaultDescription=""/>
+      <keyMapping columnObjectName="Script_View" columnName="id"/>
+    </attribute>
+    <attribute id="totalSum" order="2">
+      <keyMapping columnObjectName="Script_View" columnName="totalSum"/>
+    </attribute>
+    <attribute id="objectCount" order="3">
+      <keyMapping columnObjectName="Script_View" columnName="objectCount"/>
+    </attribute>
+    <attribute id="centerLatitude" order="4">
+      <keyMapping columnObjectName="Script_View" columnName="centerLatitude"/>
+    </attribute>
+    <attribute id="centerLongitude" order="5">
+      <keyMapping columnObjectName="Script_View" columnName="centerLongitude"/>
+    </attribute>
+  </attributes>
+  <calculatedAttributes/>
+  <baseMeasures/>
+  <calculatedMeasures/>
+  <restrictedMeasures/></logicalModel>
+<layout>
+  <shapes>
+    <shape expanded="true" modelObjectName="Output" modelObjectNameSpace="MeasureGroup">
+      <upperLeftCorner x="40" y="85"/>
+    </shape>
+  </shapes>
+</layout>
+</Calculation:scenario>

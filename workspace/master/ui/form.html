@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html  style="height:100%">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Form</title>
+    
+    <script src="https://maps.googleapis.com/maps/api/js?key=<<API KEY HERE>>"></script>
+    
+    <script id="sap-ui-bootstrap"
+        type="text/javascript"
+        src="/sap/ui5/1/resources/sap-ui-core.js"
+		data-sap-ui-resourceroots='{"msg.maps": "./maps"}'
+        data-sap-ui-bindingSyntax='complex'
+        data-sap-ui-theme="sap_bluecrystal"
+        data-sap-ui-libs="sap.m"></script>
+    
+    <script id="main" type="sapui5/xmlview">
+        <mvc:View height="100%"
+        	xmlns:mvc="sap.ui.core.mvc"
+        	xmlns:core="sap.ui.core"
+        	xmlns:layout="sap.ui.layout"
+        	xmlns:f="sap.ui.layout.form"
+        	xmlns:maps="msg.maps"
+        	xmlns="sap.m" >
+        	<Page title="Form" showHeader="true" height="100%" enableScrolling="false">
+        	    <layout:FixFlex>
+        	        <layout:fixContent>	
+        	        <f:SimpleForm maxContainerCols="2" editable="true" layout="ResponsiveGridLayout"
+			            labelSpanL="4" labelSpanM="4" emptySpanL="4" emptySpanM="4" columnsL="1" columnsM="1">
+        				<Label text="Policy Number" />
+        				<Input value="{/policyNumber}" />
+        				<Label text="Full Name" />
+        				<Input value="{/personName}" />
+        				<Label text="House Address" />
+        				<Input value="{/objectAddress}" change="onChangeAddress"/>
+        				<Label text="Insured Sum" />
+        				<Input value="{path: '/insuredSum', type: 'sap.ui.model.type.Float'}" />
+        	    	</f:SimpleForm>
+        	        </layout:fixContent>
+        	        <layout:flexContent>
+            			<maps:Map id="map" 
+            			    latitude="{= ${latitude} || 52 }"  
+            			    longitude="{= ${longitude} || -4 }" 
+            			    binding="{/objectLocation}" 
+            			    zoom="16" 
+            			    height="100%" width="auto" />
+        	        </layout:flexContent>
+        		</layout:FixFlex>
+        		<footer>
+            		<Toolbar>
+            		    <ToolbarSpacer />
+			        	<Button text="Submit" type="Accept" width="10em" 
+			        	    press="onSubmit" class="sapUiSmallMarginBegin"/>
+            		</Toolbar>
+        		</footer>
+        	</Page>
+        </mvc:View>    
+    </script>
+    
+    <script>
+        var sCsrf;
+        //fetch the CSRF token early on
+        jQuery.ajax({
+            url: "/sap/hana/xs/dt/base/server/csrf.xsjs",
+            type: "HEAD",
+            headers: {
+                "X-CSRF-Token": "Fetch"
+            },
+            success: function(data, textStatus, jqXHR) {
+                if (jqXHR.getResponseHeader("x-sap-login-page")) {
+                    return;
+                }
+                sCsrf = jqXHR.getResponseHeader("X-CSRF-Token");
+            }
+        });
+        
+        sap.ui.require(["sap/ui/core/mvc/Controller", "sap/m/MessageToast", "sap/ui/model/json/JSONModel", "sap/ui/Device"], 
+            function(Controller, MessageToast, JSONModel, Device){
+                
+                /**
+                 * Annonymous controller for the view.
+                 * @class
+                 */
+                var fnController = Controller.extend("AnnonymousController", {
+                    
+                    onInit: function() {
+                        this.createDataModel();
+                        this.createDeviceModel();
+                        this.setContentDensityClass();
+                    },
+                    
+                    createDataModel: function() {
+                        this.getView().setModel(new JSONModel());
+                        this.createInitialModelContent();
+                    },
+                    
+                    /**
+                     * Updates the view model with the initial content (empty fields).
+                     */
+                    createInitialModelContent: function() {
+                       this.getView().getModel().setData({
+                            policyNumber: "",
+                            personName: "",
+                            objectAddress: "",
+                            insuredSum: 0,
+                            objectLocation: {
+                                latitude: null,
+                                longitude: null
+                            }
+                        });
+                    },
+                    
+                    createDeviceModel: function() {
+                    	var oModel = new JSONModel(Device);
+                    	oModel.setDefaultBindingMode("OneWay");
+                    	Device.resize.attachHandler(function() {
+                    	    oModel.setData(Device);
+                    	});
+                    	this.getView().setModel(oModel, "device");
+                    },
+                    
+                    /**
+                     * Called when the form is submitted.
+                     */
+                    onSubmit: function() {
+                        jQuery.ajax({
+                            method: "POST",
+                            url: "../service/create.xsjs",
+                            data: JSON.stringify(this.getView().getModel().getData()),
+                            headers: { "X-CSRF-Token": sCsrf },
+                            success: function() {
+                                MessageToast.show("House added successfully.");
+                                this.createInitialModelContent();
+                            }.bind(this)
+                        });
+                    },
+                    
+            		setContentDensityClass: function() {
+            			this.getView().addStyleClass(Device.support.touch ? "sapUiSizeCozy" : "sapUiSizeCompact");
+            		},
+            		
+            		/**
+            		 * Called when the address is changed. Makes a request to the geocoding
+            		 * service and updates the map center.
+            		 */
+            		onChangeAddress: function(oEvent) {
+		                var oModel = this.getView().getModel(),
+		                    oMap = this.byId("map");
+            		    jQuery.ajax({
+            		        method: "GET",
+            		        url: "../service/geocode.xsjs",
+            		        data: {address: oEvent.getSource().getValue()},
+            		        success: function(oData) {
+            		            if (oData) {
+            		                oModel.setProperty("/objectLocation/latitude", oData.lat);
+            		                oModel.setProperty("/objectLocation/longitude", oData.lng);
+            		                oMap.updateCenter();
+            		            }
+            		        },
+            		        error: function() {
+            		            MessageToast.show("Unable to find house location.");
+            		        }
+            		    });
+            		}
+                });
+                
+                sap.ui.xmlview("main", {
+                    viewContent:    jQuery("#main").html(),
+                    controller:     new fnController()
+                }).placeAt("uiArea");
+            }
+        );
+    </script>
+
+</head>
+<body class="sapUiBody" style="height:100%">
+    <div id="uiArea"  style="height:100%"></div>
+</body>
+</html>

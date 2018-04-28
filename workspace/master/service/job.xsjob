@@ -1,0 +1,7 @@
+{
+    "description": "Perform geocoding",
+    "action": "workspace.master.service:job.xsjs::batch",
+    "schedules": [{
+        "xscron": "* * * * * * */5"
+    }]
+}
