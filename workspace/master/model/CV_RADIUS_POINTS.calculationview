@@ -41,17 +41,13 @@ BEGIN
     
     /* Adds a flag to each point based on whether or not it is inside the radius. */
     
-    var_out = SELECT &quot;policyNumber&quot;, &quot;objectLocation&quot;.ST_Y() AS &quot;objectLatitude&quot;, 
-        &quot;objectLocation&quot;.ST_X() AS &quot;objectLongitude&quot;, 1 AS &quot;group&quot;
+    var_out = SELECT &quot;policyNumber&quot;, 
+        &quot;objectLocation&quot;.ST_Y() AS &quot;objectLatitude&quot;, 
+        &quot;objectLocation&quot;.ST_X() AS &quot;objectLongitude&quot;, 
+        CASE WHEN &quot;objectLocation&quot;.ST_DISTANCE(NEW ST_POINT('POINT(' || :IV_LNG || ' ' ||  :IV_LAT || ')',
+            4326), 'meter') &lt; :iv_radius THEN 1 ELSE 0 END AS &quot;group&quot;
         FROM &quot;WORKSPACE_MASTER_SPATIAL&quot;.&quot;workspace.master.data::ctxSpatial.eInsurance&quot;
-        WHERE &quot;objectLocation&quot; IS NOT NULL AND &quot;objectLocation&quot;.ST_DISTANCE(
-            NEW ST_POINT('POINT(' || :IV_LNG || ' ' ||  :IV_LAT || ')', 4326), 'meter') &lt; :iv_radius
-    UNION ALL
-        SELECT &quot;policyNumber&quot;, &quot;objectLocation&quot;.ST_Y() AS &quot;objectLatitude&quot;, 
-        &quot;objectLocation&quot;.ST_X() AS &quot;objectLongitude&quot;, 0 AS &quot;group&quot;
-        FROM &quot;WORKSPACE_MASTER_SPATIAL&quot;.&quot;workspace.master.data::ctxSpatial.eInsurance&quot; 
-        WHERE &quot;objectLocation&quot; IS NOT NULL AND &quot;objectLocation&quot;.ST_DISTANCE(
-            NEW ST_POINT('POINT(' || :IV_LNG || ' ' ||  :IV_LAT || ')', 4326), 'meter') &gt;= :iv_radius; 
+        WHERE &quot;objectLocation&quot; IS NOT NULL;
 
 END /********* End Procedure Script ************/</definition>
   </calculationView>
